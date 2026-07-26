@@ -22,6 +22,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.adil.orderledger.dto.UpdateOrderStatusRequest;
 import com.adil.orderledger.model.OrderStatus;
 
+import com.adil.orderledger.exception.DuplicateOrderItemException;
+import com.adil.orderledger.exception.ResourceNotFoundException;
+
 
 
 @SpringBootTest
@@ -176,5 +179,61 @@ class OrderServiceIntegrationTest {
         assertThat(historyRepository.count())
                 .isEqualTo(2);
     }
+
+    @Test
+    void createOrder_duplicateProduct_shouldThrowAndRollbackEverything() {
+        CreateOrderRequest request = new CreateOrderRequest(
+                List.of(
+                        new OrderItemRequest(product.getId(), 1),
+                        new OrderItemRequest(product.getId(), 2)
+                ),
+                null
+        );
+
+        assertThatThrownBy(() -> orderService.createOrder(request))
+                .isInstanceOf(DuplicateOrderItemException.class)
+                .hasMessageContaining("more than once");
+
+        Product unchangedProduct = productRepository.findById(product.getId())
+                .orElseThrow();
+
+        assertThat(unchangedProduct.getStockQuantity())
+                .isEqualTo(5);
+
+        assertThat(orderRepository.count())
+                .isZero();
+
+        assertThat(historyRepository.count())
+                .isZero();
+    }
+
+    @Test
+    void createOrder_nonExistingProduct_shouldThrowAndRollbackEverything() {
+        Long nonExistingProductId = 999999L;
+
+        CreateOrderRequest request = new CreateOrderRequest(
+                List.of(
+                        new OrderItemRequest(nonExistingProductId, 1)
+                ),
+                null
+        );
+
+        assertThatThrownBy(() -> orderService.createOrder(request))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("Product not found");
+
+        Product unchangedProduct = productRepository.findById(product.getId())
+                .orElseThrow();
+
+        assertThat(unchangedProduct.getStockQuantity())
+                .isEqualTo(5);
+
+        assertThat(orderRepository.count())
+                .isZero();
+
+        assertThat(historyRepository.count())
+                .isZero();
+    }
+
 
 }

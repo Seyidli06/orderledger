@@ -3,6 +3,7 @@ package com.adil.orderledger.service;
 import com.adil.orderledger.dto.CreateOrderRequest;
 import com.adil.orderledger.dto.OrderItemRequest;
 import com.adil.orderledger.exception.InvalidCouponException;
+import com.adil.orderledger.exception.ResourceNotFoundException;
 import com.adil.orderledger.model.Coupon;
 import com.adil.orderledger.model.Product;
 import com.adil.orderledger.repository.CouponRepository;
@@ -249,5 +250,32 @@ class CouponIntegrationTest {
                 .build();
 
         return couponRepository.saveAndFlush(coupon);
+    }
+
+    @Test
+    void createOrder_nonExistingCoupon_shouldThrowAndRollbackEverything() {
+        CreateOrderRequest request = createOrderRequest(
+                2,
+                "NOT_FOUND"
+        );
+
+        assertThatThrownBy(() -> orderService.createOrder(request))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("Coupon not found");
+
+        Product unchangedProduct = productRepository.findById(product.getId())
+                .orElseThrow();
+
+        assertThat(unchangedProduct.getStockQuantity())
+                .isEqualTo(10);
+
+        assertThat(orderRepository.count())
+                .isZero();
+
+        assertThat(historyRepository.count())
+                .isZero();
+
+        assertThat(couponRepository.count())
+                .isZero();
     }
 }
