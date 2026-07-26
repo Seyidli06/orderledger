@@ -19,6 +19,11 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.adil.orderledger.dto.UpdateOrderStatusRequest;
+import com.adil.orderledger.model.OrderStatus;
+
+
+
 @SpringBootTest
 @ActiveProfiles("test")
 class OrderServiceIntegrationTest {
@@ -105,4 +110,71 @@ class OrderServiceIntegrationTest {
         assertThat(historyRepository.count())
                 .isZero();
     }
+
+    @Test
+    void cancelOrder_shouldRestoreStockAndCreateHistory() {
+        CreateOrderRequest createRequest = new CreateOrderRequest(
+                List.of(new OrderItemRequest(product.getId(), 2)),
+                null
+        );
+
+        var createdOrder = orderService.createOrder(createRequest);
+
+        Product reducedProduct = productRepository.findById(product.getId())
+                .orElseThrow();
+
+        assertThat(reducedProduct.getStockQuantity())
+                .isEqualTo(3);
+
+        UpdateOrderStatusRequest cancelRequest =
+                new UpdateOrderStatusRequest(
+                        OrderStatus.CANCELLED,
+                        "Customer requested cancellation"
+                );
+
+        var cancelledOrder = orderService.updateOrderStatus(
+                createdOrder.id(),
+                cancelRequest
+        );
+
+        Product restoredProduct = productRepository.findById(product.getId())
+                .orElseThrow();
+
+        assertThat(cancelledOrder.status())
+                .isEqualTo(OrderStatus.CANCELLED);
+
+        assertThat(restoredProduct.getStockQuantity())
+                .isEqualTo(5);
+
+        assertThat(historyRepository.count())
+                .isEqualTo(2);
+    }
+
+    @Test
+    void updateStatus_createdToPaid_shouldSucceedAndCreateHistory() {
+        CreateOrderRequest createRequest = new CreateOrderRequest(
+                List.of(new OrderItemRequest(product.getId(), 2)),
+                null
+        );
+
+        var createdOrder = orderService.createOrder(createRequest);
+
+        UpdateOrderStatusRequest updateRequest =
+                new UpdateOrderStatusRequest(
+                        OrderStatus.PAID,
+                        "Payment completed"
+                );
+
+        var updatedOrder = orderService.updateOrderStatus(
+                createdOrder.id(),
+                updateRequest
+        );
+
+        assertThat(updatedOrder.status())
+                .isEqualTo(OrderStatus.PAID);
+
+        assertThat(historyRepository.count())
+                .isEqualTo(2);
+    }
+
 }
