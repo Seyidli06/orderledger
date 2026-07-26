@@ -14,6 +14,9 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import java.util.HashSet;
+import java.util.Set;
+
 @Service
 @RequiredArgsConstructor
 public class OrderService {
@@ -33,18 +36,22 @@ public class OrderService {
 
         BigDecimal runningTotal = BigDecimal.ZERO;
 
-        for (OrderItemRequest itemReq : request.items()) {
-            Product product = productRepository.findById(itemReq.productId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + itemReq.productId()));
+        Set<Long> productIds = new HashSet<>();
 
-            // 1. Inventory Check
-            if (product.getStockQuantity() < itemReq.quantity()) {
-                throw new InsufficientStockException("Insufficient stock for product: " + product.getName()
-                        + ". Requested: " + itemReq.quantity() + ", Available: " + product.getStockQuantity());
+        for (OrderItemRequest itemReq : request.items()) {
+
+            if (!productIds.add(itemReq.productId())) {
+                throw new DuplicateOrderItemException(
+                        "Product cannot appear more than once in the same order. Product ID: "
+                                + itemReq.productId()
+                );
             }
 
-            // 2. Atomic Stock Reduction (JPA dirty checking handles database synchronization on commit)
-            product.setStockQuantity(product.getStockQuantity() - itemReq.quantity());
+            Product product = productRepository.findById(itemReq.productId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Product not found with ID: " + itemReq.productId()
+                    ));
+
 
             // 3. Dynamic Price Calculation
             BigDecimal subtotal = product.getUnitPrice().multiply(BigDecimal.valueOf(itemReq.quantity()));

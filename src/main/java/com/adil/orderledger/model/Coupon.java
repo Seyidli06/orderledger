@@ -14,6 +14,10 @@ import java.time.LocalDateTime;
 @Builder
 public class Coupon {
 
+    @Version
+    @Column(nullable = false)
+    private Long version;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

@@ -9,12 +9,37 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.time.OffsetDateTime;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
+
+
 
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler({
+            ObjectOptimisticLockingFailureException.class,
+            OptimisticLockingFailureException.class
+    })
+    public ResponseEntity<Map<String, Object>> handleOptimisticLockingFailure(
+            RuntimeException ex
+    ) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp", OffsetDateTime.now());
+        body.put("status", HttpStatus.CONFLICT.value());
+        body.put("error", HttpStatus.CONFLICT.getReasonPhrase());
+        body.put(
+                "message",
+                "Product stock was changed by another request. Please retry."
+        );
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
 
     // 1. Resource Not Found
     @ExceptionHandler(ResourceNotFoundException.class)
@@ -63,5 +88,18 @@ public class GlobalExceptionHandler {
         body.put("message", message);
 
         return new ResponseEntity<>(body, status);
+    }
+
+    @ExceptionHandler(DuplicateOrderItemException.class)
+    public ResponseEntity<Map<String, Object>> handleDuplicateOrderItem(
+            DuplicateOrderItemException ex
+    ) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp", OffsetDateTime.now());
+        body.put("status", HttpStatus.BAD_REQUEST.value());
+        body.put("error", "Bad Request");
+        body.put("message", ex.getMessage());
+
+        return ResponseEntity.badRequest().body(body);
     }
 }
