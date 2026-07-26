@@ -36,7 +36,8 @@ public class OrderController {
     @Operation(summary = "Update order status")
     public OrderResponse updateOrderStatus(
             @PathVariable Long id,
-            @RequestBody UpdateOrderStatusRequest request) {
+            @Valid @RequestBody UpdateOrderStatusRequest request
+    ) {
         return orderService.updateOrderStatus(id, request);
     }
 
