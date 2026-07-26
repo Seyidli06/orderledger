@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: ${TEST_DB_URL:jdbc:postgresql://localhost:5432/orderledger_test}
-    username: ${TEST_DB_USERNAME:postgres}
-    password: ${TEST_DB_PASSWORD}
+    url: jdbc:postgresql://localhost:5432/orderledger_test
+    username: postgres
+    password: 12345
 
   jpa:
     hibernate:

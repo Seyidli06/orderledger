@@ -43,29 +43,32 @@ class OrderServiceIntegrationTest {
         orderRepository.deleteAll();
         productRepository.deleteAll();
 
-        product = productRepository.save(
-                Product.builder()
-                        .name("Test Product")
-                        .unitPrice(new BigDecimal("100.00"))
-                        .stockQuantity(5)
-                        .build()
-        );
+        product = Product.builder()
+                .name("Test Product")
+                .unitPrice(new BigDecimal("100.00"))
+                .stockQuantity(5)
+                .build();
+
+        product = productRepository.saveAndFlush(product);
     }
 
     @Test
     void createOrder_success_shouldReduceStockAndCreateHistory() {
         CreateOrderRequest request = new CreateOrderRequest(
-                List.of(new OrderItemRequest(product.getId(), 2)),
+                List.of(
+                        new OrderItemRequest(product.getId(), 2)
+                ),
                 null
         );
 
         var response = orderService.createOrder(request);
 
-        Product updatedProduct = productRepository.findById(product.getId())
+        Product updatedProduct = productRepository
+                .findById(product.getId())
                 .orElseThrow();
 
         assertThat(response.totalAmount())
-                .isEqualByComparingTo("200.00");
+                .isEqualByComparingTo(new BigDecimal("200.00"));
 
         assertThat(updatedProduct.getStockQuantity())
                 .isEqualTo(3);
@@ -80,14 +83,17 @@ class OrderServiceIntegrationTest {
     @Test
     void createOrder_insufficientStock_shouldRollbackEverything() {
         CreateOrderRequest request = new CreateOrderRequest(
-                List.of(new OrderItemRequest(product.getId(), 10)),
+                List.of(
+                        new OrderItemRequest(product.getId(), 10)
+                ),
                 null
         );
 
         assertThatThrownBy(() -> orderService.createOrder(request))
                 .isInstanceOf(InsufficientStockException.class);
 
-        Product unchangedProduct = productRepository.findById(product.getId())
+        Product unchangedProduct = productRepository
+                .findById(product.getId())
                 .orElseThrow();
 
         assertThat(unchangedProduct.getStockQuantity())
